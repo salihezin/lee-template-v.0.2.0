@@ -2,49 +2,12 @@ import React from 'react';
 import { Helmet } from 'react-helmet';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.min.js';
-
-// import 'vendors/simplebar/simplebar.min.css';
-// import 'assets/css/theme-rtl.min.css';
-// import 'assets/css/theme.min.css';
-// import 'assets/css/user-rtl.min.css';
-// import 'assets/css/user.min.css';
-// import 'vendors/leaflet/leaflet.css';
-// import 'vendors/leaflet.markercluster/MarkerCluster.css';
-
 import MyNavbarVertical from './../customComponents/Navbar/MyNavBarVertical';
 import NavbarFixedTop from './../defaultComponents/navbarFixedTop';
-import { useEffect } from 'react';
 import { headTextCss } from './../constansts/textCss';
 import { scriptJs } from '../constansts/scriptJs';
 
 const AdminLayout = ({ children }) => {
-  // useEffect(() => {
-  //   const appendElement = (tag, attributes) => {
-  //     const element = document.createElement(tag);
-  //     Object.keys(attributes).forEach(key => {
-  //       element[key] = attributes[key];
-  //     });
-  //     document.head.appendChild(element);
-  //   };
-
-  //   appendElement('meta', { httpEquiv: 'X-UA-Compatible', content: 'IE=edge' });
-  //   appendElement('meta', { name: 'viewport', content: 'width=device-width, initial-scale=1' });
-  //   document.title = 'WMB - Admin';
-  //   appendElement('style', { innerHTML: headTextCss });
-  //   appendElement('link', { rel: 'apple-touch-icon', sizes: '180x180', href: 'assets/img/favicons/apple-touch-icon.png' });
-  //   appendElement('link', { rel: 'icon', type: 'image/png', sizes: '32x32', href: 'assets/img/favicons/favicon-32x32.png' });
-  //   appendElement('link', { rel: 'icon', type: 'image/png', sizes: '16x16', href: 'assets/img/favicons/favicon-16x16.png' });
-  //   appendElement('link', { rel: 'shortcut icon', type: 'image/x-icon', href: 'assets/img/favicons/favicon.ico' });
-  //   appendElement('link', { rel: 'manifest', href: 'assets/img/favicons/manifest.json' });
-  //   appendElement('meta', { name: 'msapplication-TileColor', content: 'assets/img/favicons/mstile-150x150.png' });
-  //   appendElement('meta', { name: 'theme-color', content: '#ffffff' });
-  //   appendElement('link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' });
-  //   appendElement('link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossOrigin: '' });
-  //   appendElement('link', { href: 'https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@300;400;600;700;800;900&display=swap', rel: 'stylesheet' });
-  //   appendElement('link', { rel: 'stylesheet', href: 'https://unicons.iconscout.com/release/v4.0.8/css/line.css' });
-  //   // eslint-disable-next-line
-  // }, []);
-
   return (
     <div>
       <Helmet>

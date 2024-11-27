@@ -37,8 +37,8 @@ module.exports = (sequelize, DataTypes) => {
     });
 
     NavbarMenu.associate = (models) => {
-        NavbarMenu.belongsTo(models.NavbarMenu, { foreignKey: 'parentId' });
-        NavbarMenu.hasMany(models.NavbarMenu, { foreignKey: 'parentId' });
+        NavbarMenu.belongsTo(models.NavbarMenu, {as: 'ParentMenu', foreignKey: 'parentId' });
+        NavbarMenu.hasMany(models.NavbarMenu, {as: 'Submenus', foreignKey: 'parentId' });
     };
 
     return NavbarMenu;

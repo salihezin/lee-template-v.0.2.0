@@ -74,8 +74,47 @@ app.post('/api/users', async (req, res) => {
 });
 
 app.get('/api/navbar-menus', async (req, res) => {
-    const navbarMenus = await NavbarMenu.findAll();
-    return res.json(navbarMenus);
+    try {
+        const navbarMenus = await NavbarMenu.findAll({
+            order: [['sortOrder', 'ASC']],
+        });
+
+        const getParentTitle = (menuItems, parentId) => {
+            const parent = menuItems.find(item => item.id === parentId);
+            return parent ? parent.title : null;
+        };
+
+        const hasGrandChild = (menuItems, children) => {
+            return children.some(child => 
+                menuItems.some(item => item.parentId === child.id)
+            );
+        };
+
+        const buildMenuTree = (menuItems, parentId = null) => {
+            return menuItems
+                .filter(item => item.parentId === parentId)
+                .map(item => {
+                    const children = buildMenuTree(menuItems, item.id);
+                    return {
+                        ...item.dataValues,
+                        parentTitle: getParentTitle(menuItems, item.parentId),
+                        grandParentTitle: getParentTitle(
+                            menuItems,
+                            menuItems.find(parent => parent.id === item.parentId)?.parentId
+                        ),
+                        hasGrandChild: hasGrandChild(menuItems, children),
+                        children,
+                    };
+                });
+        };
+
+        const menuTree = buildMenuTree(navbarMenus);
+
+        return res.json(menuTree);
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'An error occurred while fetching menus.' });
+    }
 });
 
 app.post('/api/navbar-menus', async (req, res) => {

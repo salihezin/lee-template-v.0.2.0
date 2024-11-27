@@ -1,5 +1,11 @@
 "use strict";
 
+function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) { var symbols = Object.getOwnPropertySymbols(object); if (enumerableOnly) symbols = symbols.filter(function (sym) { return Object.getOwnPropertyDescriptor(object, sym).enumerable; }); keys.push.apply(keys, symbols); } return keys; }
+
+function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i] != null ? arguments[i] : {}; if (i % 2) { ownKeys(source, true).forEach(function (key) { _defineProperty(target, key, source[key]); }); } else if (Object.getOwnPropertyDescriptors) { Object.defineProperties(target, Object.getOwnPropertyDescriptors(source)); } else { ownKeys(source).forEach(function (key) { Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key)); }); } } return target; }
+
+function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
+
 var express = require('express');
 
 var cors = require('cors');
@@ -153,24 +159,48 @@ app.post('/api/users', function _callee2(req, res) {
   });
 });
 app.get('/api/navbar-menus', function _callee3(req, res) {
-  var navbarMenus;
+  var navbarMenus, buildMenuTree, menuTree;
   return regeneratorRuntime.async(function _callee3$(_context3) {
     while (1) {
       switch (_context3.prev = _context3.next) {
         case 0:
-          _context3.next = 2;
-          return regeneratorRuntime.awrap(NavbarMenu.findAll());
+          _context3.prev = 0;
+          _context3.next = 3;
+          return regeneratorRuntime.awrap(NavbarMenu.findAll({
+            order: [['sortOrder', 'ASC']]
+          }));
 
-        case 2:
+        case 3:
           navbarMenus = _context3.sent;
-          return _context3.abrupt("return", res.json(navbarMenus));
 
-        case 4:
+          buildMenuTree = function buildMenuTree(menuItems) {
+            var parentId = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : null;
+            return menuItems.filter(function (item) {
+              return item.parentId === parentId;
+            }).map(function (item) {
+              return _objectSpread({}, item.dataValues, {
+                children: buildMenuTree(menuItems, item.id)
+              });
+            });
+          };
+
+          menuTree = buildMenuTree(navbarMenus);
+          return _context3.abrupt("return", res.json(menuTree));
+
+        case 9:
+          _context3.prev = 9;
+          _context3.t0 = _context3["catch"](0);
+          console.error(_context3.t0);
+          return _context3.abrupt("return", res.status(500).json({
+            error: 'An error occurred while fetching menus.'
+          }));
+
+        case 13:
         case "end":
           return _context3.stop();
       }
     }
-  });
+  }, null, null, [[0, 9]]);
 });
 app.post('/api/navbar-menus', function _callee4(req, res) {
   var _req$body2, title, url, parentId, icon, isActive;
