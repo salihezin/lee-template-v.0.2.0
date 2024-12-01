@@ -42,6 +42,10 @@ function authenticateToken(req, res, next) {
     const token = req.header('Authorization')?.split(' ')[1];
     if (!token) return res.status(401).json({ error: 'Erişim izni yok.' });
 
+    console.log('token', token);
+    console.log('secretKey', secretKey);
+    console.log('token and secretKey is matched', secretKey === token);
+
     jwt.verify(token, secretKey, (err, user) => {
         if (err) return res.status(403).json({ error: 'Geçersiz token.' });
         req.user = user;
