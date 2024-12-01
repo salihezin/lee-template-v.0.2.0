@@ -1,4 +1,6 @@
 const express = require('express');
+const session = require('express-session');
+const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
 const multer = require('multer');
@@ -19,14 +21,63 @@ const {
     sequelize,
 } = require('./db/models');
 
+const secretKey = 'secretLeeKey';
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(session({
+    secret: secretKey,
+    resave: false,
+    saveUninitialized: true,
+    cookie: {secure: false, httpOnly: true, maxAge: 1000 * 60 * 60 * 24},
+}));
 
 connect().then(() => {
     console.log('Veritabanı bağlantısı başarılı!');
 }).catch((error) => {
     console.error('Veritabanı bağlantısı başarısız:', error);
+});
+
+function authenticateToken(req, res, next) {
+    const token = req.header('Authorization')?.split(' ')[1];
+    if (!token) return res.status(401).send('Access Denied');
+
+    jwt.verify(token, secretKey, (err, decoded) => {
+        if (err) return res.status(403).send('Invalid Token');
+        req.user = decoded; // Kullanıcı bilgilerini ekle
+        next();
+    });
+}
+
+app.post('/api/login', async (req, res) => {
+    const { email, password } = req.body;
+
+    try {
+        const user = await User.findOne({ where: { email } });
+        if (!user) {
+            return res.status(404).json({ error: 'Kullanıcı bulunamadı.' });
+        }
+
+        const isPasswordMatch = await bcrypt.compare(password, user.password);
+        if (!isPasswordMatch) {
+            return res.status(400).json({ error: 'Hatalı şifre.' });
+        }
+
+        const token = jwt.sign(
+            { userId: user.id, email: user.email },
+            secretKey,
+            { expiresIn: '1h' }
+        );
+
+        return res.json({
+            message: 'Giriş başarılı.',
+            token,
+            user: { id: user.id, email: user.email, name: user.name }
+        });
+    } catch (error) {
+        console.error('Login Error:', error);
+        return res.status(500).json({ error: 'Bir hata oluştu.' });
+    }
 });
 
 const storageCarousel = multer.diskStorage({
@@ -103,6 +154,7 @@ app.get('/api/navbar-menus', async (req, res) => {
                             menuItems.find(parent => parent.id === item.parentId)?.parentId
                         ),
                         hasGrandChild: hasGrandChild(menuItems, children),
+                        parentId: item.parentId,
                         children,
                     };
                 });
@@ -124,7 +176,16 @@ app.post('/api/navbar-menus', async (req, res) => {
     }).catch((error) => {
         return res.status(500).json({ error: error.message });
     });
-   
+
+});
+
+app.delete('/api/navbar-menus/:id', async (req, res) => {
+    const id = req.params.id;
+    NavbarMenu.destroy({where: {id}}).then(() => {
+        return res.json({id});
+    }).catch((error) => {
+        return res.status(500).json({error: error.message});
+    });
 });
 
 
