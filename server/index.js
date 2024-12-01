@@ -49,6 +49,10 @@ function authenticateToken(req, res, next) {
     });
 }
 
+app.get('/api/protected', authenticateToken, (req, res) => {
+    res.send('Hoşgeldin' + req.user.email);
+});
+
 app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
 
