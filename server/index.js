@@ -40,17 +40,17 @@ connect().then(() => {
 
 function authenticateToken(req, res, next) {
     const token = req.header('Authorization')?.split(' ')[1];
-    if (!token) return res.status(401).send('Access Denied');
+    if (!token) return res.status(401).json({ error: 'Erişim izni yok.' });
 
-    jwt.verify(token, secretKey, (err, decoded) => {
-        if (err) return res.status(403).send('Invalid Token');
-        req.user = decoded; // Kullanıcı bilgilerini ekle
+    jwt.verify(token, secretKey, (err, user) => {
+        if (err) return res.status(403).json({ error: 'Geçersiz token.' });
+        req.user = user;
         next();
     });
 }
 
 app.get('/api/protected', authenticateToken, (req, res) => {
-    res.send('Hoşgeldin' + req.user.email);
+    res.json({ message: 'Bu korunan bir rotadır.', user: req.user });
 });
 
 app.post('/api/login', async (req, res) => {
