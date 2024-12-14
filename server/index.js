@@ -1,4 +1,5 @@
 const express = require('express');
+const fs = require('fs');
 const session = require('express-session');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
@@ -7,18 +8,11 @@ const multer = require('multer');
 const path = require('path');
 const { connect } = require('./db/db');
 const {
-    Carousel,
     NavbarMenu,
-    Permission,
-    Post,
-    PostCategory,
-    PostMedia,
     Role,
-    Session,
     User,
     UserDetail,
     UserRoles,
-    sequelize,
 } = require('./db/models');
 
 const secretKey = 'secretLeeKey';
@@ -41,10 +35,6 @@ connect().then(() => {
 function authenticateToken(req, res, next) {
     const token = req.header('Authorization')?.split(' ')[1];
     if (!token) return res.status(401).json({ error: 'Erişim izni yok.' });
-
-    console.log('token', token);
-    console.log('secretKey', secretKey);
-    console.log('token and secretKey is matched', secretKey === token);
 
     jwt.verify(token, secretKey, (err, user) => {
         if (err) return res.status(403).json({ error: 'Geçersiz token.' });
@@ -72,9 +62,9 @@ app.post('/api/login', async (req, res) => {
         }
 
         const token = jwt.sign(
-            { userId: user.id, email: user.email },
-            secretKey,
-            { expiresIn: '1h' }
+          { userId: user.id, email: user.email },
+          secretKey,
+          { expiresIn: '1h' }
         );
 
         return res.json({
@@ -88,30 +78,91 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-const storageCarousel = multer.diskStorage({
+const publicDirectory = '/home/webmobil/public_html/';
+const userPath = publicDirectory + 'users/profilePictures';
+
+const storageUserProfilePicture = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, path.join(__dirname, '../../lee-template/client/public/techSoft/images/forms/carousels'));
+        const userDirectory = path.join(userPath);
+
+        if (!fs.existsSync(userDirectory)) {
+            fs.mkdirSync(userDirectory, {recursive: true});
+        }
+
+        cb(null, userDirectory);
     },
     filename: (req, file, cb) => {
-        cb(null, `${Date.now()}-${file.originalname}`);
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+        const extension = path.extname(file.originalname);
+        cb(null, `profile-${uniqueSuffix}${extension}`);
     },
 });
 
-const upload = multer({ storage: storageCarousel });
+const uploadUserProfilePicture = multer({storage: storageUserProfilePicture});
 
-app.post('/uploadCarousel', upload.single('image'), (req, res) => {
-    if (!req.file) {
-        return res.status(400).json({ error: 'Dosya yüklenemedi.' });
+const carouselMediaPath = publicDirectory + 'carousel/media';
+const storageCarousel = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const carouselMediaDirectory = path.join(carouselMediaPath);
+
+        if (!fs.existsSync(carouselMediaDirectory)) {
+            fs.mkdirSync(carouselMediaDirectory, {recursive: true});
+        }
+
+        cb(null, carouselMediaDirectory);
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+        const extension = path.extname(file.originalname);
+        cb(null, `media-${uniqueSuffix}${extension}`);
+    },
+});
+
+const uploadCarousel = multer({storage: storageCarousel});
+
+app.post('/api/uploadCarousel', uploadCarousel.single('file'), (req, res) => {
+    try {
+        const filePath = `/carousel/media/${req.file.filename}`;
+        res.status(200).json({
+            message: 'Dosya başarıyla yüklendi!',
+            filePath,
+        });
+    } catch (error) {
+        console.error('Upload Error:', error);
+        res.status(500).json({ error: `Dosya yükleme sırasında bir hata oluştu: ${error.message}` });
     }
-    res.json({ file: req.file });
+});
+
+app.post('/api/uploadProfilePicture', uploadUserProfilePicture.single('file'), (req, res) => {
+    try {
+        const filePath = `/users/profilePictures/${req.file.filename}`;
+        res.status(200).json({
+            message: 'Dosya başarıyla yüklendi!',
+            filePath,
+        });
+    } catch (error) {
+        console.error('Upload Error:', error);
+        res.status(500).json({ error: `Dosya yükleme sırasında bir hata oluştu: ${error.message}` });
+    }
 });
 
 app.get('/api/users', async (req, res) => {
     try {
-        const users = await User.findAll();
-        // const users = await sequelize.query('SELECT * FROM Users', { model: User, mapToModel: true });
-        console.log('users', users)
-        if (!users) {
+        const users = await User.findAll({
+            include: [
+                {
+                    model: UserDetail,
+                    as: 'UserDetails',
+                },
+                {
+                    model: Role,
+                    as: 'Roles',
+                    through: { attributes: [] }
+                },
+            ],
+        });
+
+        if (!users || users.length === 0) {
             return res.status(404).json({ error: 'Kullanıcılar bulunamadı.' });
         } else {
             return res.json(users);
@@ -120,6 +171,7 @@ app.get('/api/users', async (req, res) => {
         return res.status(500).json({ error: error.message });
     }
 });
+
 
 app.post('/api/users', async (req, res) => {
     const { email, password } = req.body;
@@ -130,6 +182,76 @@ app.post('/api/users', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = await User.create({ email, password: hashedPassword });
     return res.json(newUser);
+});
+
+app.put('/api/users/:id', async (req, res) => {
+    const id = req.params.id;
+    const {email, password} = req.body;
+    const user = await User.findByPk(id);
+    if (!user) {
+        return res.status(404).json({error: 'Kullanıcı bulunamadı.'});
+    } else {
+        user.email = email;
+        user.password = await bcrypt.hash(password, 10);
+        await user.save();
+        return res.json(user);
+    }
+});
+
+app.delete('/api/users/:id', async (req, res) => {
+    const id = req.params.id;
+    const user = await User.findByPk(id);
+    if (!user) {
+        return res.status(404).json({error: 'Kullanıcı bulunamadı.'});
+    } else {
+        await user.destroy();
+        return res.json({id});
+    }
+});
+
+app.get('/api/user-details', async (req, res) => {
+    try {
+        const userDetails = await UserDetail.findAll();
+        return res.json(userDetails);
+    } catch (error) {
+        return res.status(500).json({error: error.message});
+    }
+});
+
+app.get('/api/user-details/:id', async (req, res) => {
+    const id = req.params.id;
+    const userDetail = await UserDetail.findOne({where: {userId: id}});
+    if (!userDetail) {
+        return res.status(404).json({error: 'Kullanıcı detayı bulunamadı.'});
+    } else {
+        return res.json(userDetail);
+    }
+});
+
+app.post('/api/user-details', async (req, res) => {
+    const {firstName, lastName, profilePhoto, updatedAt, userId} = req.body;
+    UserDetail.create({firstName, lastName, profilePhoto, updatedAt, userId}).then((userDetail) => {
+        return res.json(userDetail);
+    }).catch((error) => {
+        return res.status(500).json({error: error.message});
+    });
+});
+
+app.put('/api/user-details/:id', async (req, res) => {
+    const id = req.params.id;
+    const {firstName, lastName, profilePhoto, updatedAt, userId} = req.body;
+    const userDetail = await UserDetail.findOne({where: {userId: id}});
+    if (!userDetail) {
+        return res.status(404).json({error: 'Kullanıcı detayı bulunamadı.'});
+    } else {
+        userDetail.firstName = firstName;
+        userDetail.lastName = lastName;
+        userDetail.profilePhoto = profilePhoto;
+        userDetail.updatedAt = updatedAt;
+        userDetail.userId = userId;
+        await userDetail.save();
+        return res.json(userDetail);
+    }
 });
 
 app.get('/api/navbar-menus', async (req, res) => {
@@ -144,28 +266,28 @@ app.get('/api/navbar-menus', async (req, res) => {
         };
 
         const hasGrandChild = (menuItems, children) => {
-            return children.some(child => 
-                menuItems.some(item => item.parentId === child.id)
+            return children.some(child =>
+              menuItems.some(item => item.parentId === child.id)
             );
         };
 
         const buildMenuTree = (menuItems, parentId = null) => {
             return menuItems
-                .filter(item => item.parentId === parentId)
-                .map(item => {
-                    const children = buildMenuTree(menuItems, item.id);
-                    return {
-                        ...item.dataValues,
-                        parentTitle: getParentTitle(menuItems, item.parentId),
-                        grandParentTitle: getParentTitle(
-                            menuItems,
-                            menuItems.find(parent => parent.id === item.parentId)?.parentId
-                        ),
-                        hasGrandChild: hasGrandChild(menuItems, children),
-                        parentId: item.parentId,
-                        children,
-                    };
-                });
+              .filter(item => item.parentId === parentId)
+              .map(item => {
+                  const children = buildMenuTree(menuItems, item.id);
+                  return {
+                      ...item.dataValues,
+                      parentTitle: getParentTitle(menuItems, item.parentId),
+                      grandParentTitle: getParentTitle(
+                        menuItems,
+                        menuItems.find(parent => parent.id === item.parentId)?.parentId
+                      ),
+                      hasGrandChild: hasGrandChild(menuItems, children),
+                      parentId: item.parentId,
+                      children,
+                  };
+              });
         };
 
         const menuTree = buildMenuTree(navbarMenus);
@@ -196,6 +318,27 @@ app.delete('/api/navbar-menus/:id', async (req, res) => {
     });
 });
 
+app.get('/api/roles', async (req, res) => {
+    try {
+        const roles = await Role.findAll();
+        return res.json(roles);
+    } catch (error) {
+        return res.status(500).json({error: error.message});
+    }
+});
+
+app.put('/api/user-roles', async (req, res) => {
+    const { userId, roleId } = req.body;
+    const userRole = await UserRoles.findOne({ where: { userId } });
+    if (userRole) {
+        userRole.roleId = roleId;
+        await userRole.save();
+        return res.json(userRole);
+    } else {
+        const newUserRole = await UserRoles.create({ userId, roleId });
+        return res.json(newUserRole);
+    }
+});
 
 app.listen(3003, () => {
     console.log('Server running on http://localhost:3003');
