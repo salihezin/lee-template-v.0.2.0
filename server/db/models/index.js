@@ -11,6 +11,9 @@ models.Session = require('./SessionModel')(sequelize, DataTypes);
 models.User = require('./UserModel')(sequelize, DataTypes);
 models.UserDetail = require('./UserDetailModel')(sequelize, DataTypes);
 models.UserRoles = require('./UserRolesModel')(sequelize, DataTypes);
+models.PostCategory = require('./PostCategoryModel')(sequelize, DataTypes);
+models.PostModel = require('./PostModel')(sequelize, DataTypes);
+models.PostCategoryLink = require('./PostCategoryLinkModel')(sequelize, DataTypes);
 
 Object.keys(models).forEach((modelName) => {
     if (models[modelName].associate) {
