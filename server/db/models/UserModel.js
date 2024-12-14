@@ -25,7 +25,7 @@ module.exports = (sequelize, DataTypes) => {
   User.associate = (models) => {
     User.hasMany(models.Session, { foreignKey: 'userId' });
     User.hasMany(models.UserDetail, { foreignKey: 'userId' });
-    User.hasMany(models.Post, { foreignKey: 'authorId' });
+    User.hasMany(models.PostModel, { foreignKey: 'authorId' });
     User.belongsToMany(models.Role, {
       through: models.UserRoles,
       foreignKey: 'userId',
