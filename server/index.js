@@ -13,6 +13,10 @@ const {
     User,
     UserDetail,
     UserRoles,
+    PostCategory,
+    PostCategoryLink,
+    PostModel,
+    Session,
 } = require('./db/models');
 
 const secretKey = 'secretLeeKey';
@@ -66,6 +70,18 @@ app.post('/api/login', async (req, res) => {
           secretKey,
           { expiresIn: '1h' }
         );
+
+        // varsa eski session'ı sil, yeni session oluştur
+        const oldSession = await Session.findOne({where: {userId: user.id}});
+        if (oldSession) {
+            await oldSession.destroy();
+        }
+
+        const expires = new Date();
+        expires.setHours(expires.getHours() + 1);
+        const createdAt = new Date();
+        await Session.create({userId: user.id, expires, createdAt, updatedAt: createdAt});
+
 
         return res.json({
             message: 'Giriş başarılı.',
@@ -159,6 +175,11 @@ app.get('/api/users', async (req, res) => {
                     as: 'Roles',
                     through: { attributes: [] }
                 },
+                {
+                    model: Session,
+                    as: 'Sessions',
+
+                }
             ],
         });
 
@@ -169,6 +190,34 @@ app.get('/api/users', async (req, res) => {
         }
     } catch (error) {
         return res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/users/:id', async (req, res) => {
+    const id = req.params.id;
+    const user = await User.findOne({
+        where: { id },
+        include: [
+            {
+                model: UserDetail,
+                as: 'UserDetails',
+            },
+            {
+                model: Role,
+                as: 'Roles',
+                through: { attributes: [] }
+            },
+            {
+                model: Session,
+                as: 'Sessions',
+
+            }
+        ],
+    });
+    if (!user) {
+        return res.status(404).json({ error: 'Kullanıcı bulunamadı.' });
+    } else {
+        return res.json(user);
     }
 });
 
@@ -338,6 +387,153 @@ app.put('/api/user-roles', async (req, res) => {
         const newUserRole = await UserRoles.create({ userId, roleId });
         return res.json(newUserRole);
     }
+});
+
+app.get('/api/categories', async (req, res) => {
+    try {
+        const categories = await PostCategory.findAll();
+        return res.json(categories);
+    } catch (error) {
+        return res.status(500).json({error: error.message});
+    }
+});
+
+app.post('/api/categories', async (req, res) => {
+    const {name} = req.body;
+    PostCategory.create({name}).then((category) => {
+        return res.json(category);
+    }).catch((error) => {
+        return res.status(500).json({error: error.message});
+    });
+});
+
+app.delete('/api/categories/:id', async (req, res) => {
+    const id = req.params.id;
+    PostCategory.destroy({where: {id}}).then(() => {
+        return res.json({id});
+    }).catch((error) => {
+        return res.status(500).json({error: error.message});
+    });
+});
+
+app.get('/api/posts', async (req, res) => {
+    try {
+        const posts = await PostModel.findAll({
+            include: [
+                {
+                    model: PostCategory,
+                    as: 'PostCategories',
+                },
+            ],
+        });
+        return res.json(posts);
+    } catch (error) {
+        return res.status(500).json({error: error.message});
+    }
+});
+
+app.get('/api/posts/:id', async (req, res) => {
+    const id = req.params.id;
+    const post = await PostModel.findOne({
+        where: {id},
+        include: [
+            {
+                model: PostCategory,
+                as: 'PostCategories',
+            },
+        ],
+    });
+    if (!post) {
+        return res.status(404).json({error: 'Post not found.'});
+    } else {
+        return res.json(post);
+    }
+});
+
+app.post('/api/posts', async (req, res) => {
+    const {isActive, isCarousel, title, shortDescription, image, content, categoryId} = req.body;
+    PostModel.create({isActive, isCarousel, title, shortDescription, image, content, categoryId}).then((post) => {
+        PostCategoryLink.create({postId: post.id, categoryId}).then(() => {
+            return res.json(post);
+        }).catch((error) => {
+            return res.status(500).json({error: error.message});
+        });
+        return res.json(post);
+    }).catch((error) => {
+
+        return res.status(500).json({error: error.message});
+    });
+});
+
+app.put('/api/posts/:id', async (req, res) => {
+    const {isActive, isCarousel, title, shortDescription, image, content, categoryId} = req.body;
+    const id = req.params.id;
+    const post = await PostModel.findByPk(id);
+    if (!post) {
+        return res.status(404).json({error: 'Post not found.'});
+    } else {
+        post.isActive = isActive;
+        post.isCarousel = isCarousel;
+        post.title = title;
+        post.shortDescription = shortDescription;
+        post.image = image;
+        post.content = content;
+        post.categoryId = categoryId;
+        await post.save();
+        const postLink = await PostCategoryLink.findOne({where: {postId: id}});
+        if (!postLink) {
+            return res.status(404).json({error: 'Post category link not found.'});
+        } else {
+            postLink.categoryId = categoryId;
+            await postLink.save();
+            res.json(postLink);
+        }
+        return res.json(post);
+    }
+});
+
+app.delete('/api/posts/:id', async (req, res) => {
+    const id = req.params.id;
+    PostModel.destroy({where: {id}}).then(() => {
+        return res.json({id});
+    }).catch((error) => {
+        return res.status(500).json({error: error.message});
+    });
+});
+
+app.put('api/categoryLink/:id', async (req, res) => {
+    const id = req.params.id;
+    const {categoryId} = req.body
+    const postLink = await PostCategoryLink.findOne({where: {categoryId: categoryId}});
+    if (!postLink) {
+        return res.status(404).json({error: 'Post category link not found.'});
+    } else {
+        postLink.categoryId = categoryId;
+        await postLink.save();
+        return res.json(postLink);
+    }
+});
+
+//Get session by id
+app.get('/api/sessions/:id', async (req, res) => {
+    const id = req.params.id;
+    console.log("getSessions ~ id", id);
+    const session = await Session.findOne({where: {userId: id}});
+    if (!session) {
+        return res.status(404).json({error: 'Session not found.'});
+    } else {
+        return res.json(session);
+    }
+});
+
+app.post('/api/sessions', async (req, res) => {
+    const {userId, expires} = req.body;
+    const createdAt = new Date();
+    Session.create({userId, expires, createdAt, updatedAt: createdAt}).then((session) => {
+        return res.json(session);
+    }).catch((error) => {
+        return res.status(500).json({error: error.message});
+    });
 });
 
 app.listen(3003, () => {
