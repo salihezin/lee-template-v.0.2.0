@@ -466,12 +466,16 @@ app.post('/api/posts', async (req, res) => {
 });
 
 app.put('/api/posts/:id', async (req, res) => {
-    const {isActive, isCarousel, title, shortDescription, image, content, categoryId} = req.body;
+    const { isActive, isCarousel, title, shortDescription, image, content, categoryId } = req.body;
     const id = req.params.id;
-    const post = await PostModel.findByPk(id);
-    if (!post) {
-        return res.status(404).json({error: 'Post not found.'});
-    } else {
+
+    try {
+        const post = await PostModel.findByPk(id);
+        if (!post) {
+            return res.status(404).json({ error: 'Post not found.' });
+        }
+
+        // Güncelleme işlemleri
         post.isActive = isActive;
         post.isCarousel = isCarousel;
         post.title = title;
@@ -480,15 +484,23 @@ app.put('/api/posts/:id', async (req, res) => {
         post.content = content;
         post.categoryId = categoryId;
         await post.save();
-        const postLink = await PostCategoryLink.findOne({where: {postId: id}});
+        const postLink = await PostCategoryLink.findOne({ where: { postId: id } });
         if (!postLink) {
-            return res.status(404).json({error: 'Post category link not found.'});
-        } else {
-            postLink.categoryId = categoryId;
-            await postLink.save();
-            res.json(postLink);
+            return res.status(404).json({ error: 'Post category link not found.' });
         }
-        return res.json(post);
+
+        console.log("put ~ postLink", postLink.categoryId);
+        console.log("put ~ categoryId", categoryId);
+
+        await PostCategoryLink.update(
+          { categoryId: categoryId },
+          { where: { postId: id } }
+        );
+
+        return res.json({ post, postLink });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'An error occurred.' });
     }
 });
 
