@@ -451,18 +451,21 @@ app.get('/api/posts/:id', async (req, res) => {
 });
 
 app.post('/api/posts', async (req, res) => {
-    const {isActive, isCarousel, title, shortDescription, image, content, categoryId} = req.body;
-    PostModel.create({isActive, isCarousel, title, shortDescription, image, content, categoryId}).then((post) => {
-        PostCategoryLink.create({postId: post.id, categoryId}).then(() => {
-            return res.json(post);
-        }).catch((error) => {
-            return res.status(500).json({error: error.message});
-        });
-        return res.json(post);
-    }).catch((error) => {
+    try {
+        const { isActive, isCarousel, title, shortDescription, image, content, categoryId } = req.body;
 
-        return res.status(500).json({error: error.message});
-    });
+        // Post oluştur
+        const post = await PostModel.create({ isActive, isCarousel, title, shortDescription, image, content, categoryId });
+
+        // PostCategoryLink oluştur
+        await PostCategoryLink.create({ postId: post.id, categoryId });
+
+        // Yanıtı döndür
+        return res.json(post);
+
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
 });
 
 app.put('/api/posts/:id', async (req, res) => {
@@ -488,9 +491,6 @@ app.put('/api/posts/:id', async (req, res) => {
         if (!postLink) {
             return res.status(404).json({ error: 'Post category link not found.' });
         }
-
-        console.log("put ~ postLink", postLink.categoryId);
-        console.log("put ~ categoryId", categoryId);
 
         await PostCategoryLink.update(
           { categoryId: categoryId },
